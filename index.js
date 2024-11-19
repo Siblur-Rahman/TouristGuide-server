@@ -9,7 +9,15 @@ const port = process.env.PROT || 5001;
 
 
 // middleware
-app.use(cors())
+app.use(cors({
+  origin: ["http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "https://tourist-guide-9beb4.web.app",
+    "https://tourist-guide-9beb4.firebaseapp.com/"
+  ],
+  credentials: true,
+}))
 app.use(express.json());
 // const uri = "mongodb://localhost:27017";
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ts8x6gb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -163,6 +171,10 @@ app.get('/packages', async (req, res) =>{
   const result = await packagesCollection.find().toArray();
   res.send(result)
 })
+app.get('/packages3', async (req, res) =>{
+  const result = await packagesCollection.find().limit(3).toArray();
+  res.send(result)
+})
 
 app.get("/package/:id", async(req, res) =>{
   const id = req.params.id;
@@ -227,5 +239,5 @@ app.get('/', (req, res) =>{
 })
 
 app.listen(port, () =>{
-    console.log(`TouristGuide-server server is runing on port ${port}`)
+    console.log(`TouristGuide-server is runing on port ${port}`)
 })
