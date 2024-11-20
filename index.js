@@ -35,6 +35,7 @@ async function run() {
   try {
     // Collection
     const usersCollection = client.db("touristGuideDb").collection("users");
+    const guidessCollection = client.db("touristGuideDb").collection("guides");
     const packagesCollection = client.db("touristGuideDb").collection("packages");
     const wishPackagesCollection = client.db("touristGuideDb").collection("wishPackages");
     const bookingCollection = client.db("touristGuideDb").collection("booking");
@@ -125,19 +126,8 @@ app.patch('/user/request/:id', async(req, res)=>{
       }
       res.send({admin})
    })
-    app.get('/user/tourguide/:email', verifyToken, async(req, res) =>{
-      const email = req.params.email;
-      if(email !== req.decoded.email){
-        return res.status(403).send({message: 'forbidden access'});
-      }
-      const query = {email: email};
-      const user = await usersCollection.findOne(query);
-      let tourguide = false;
-      if(user){
-        tourguide = user?.role === 'tourguide'
-      }
-      res.send({tourguide})
-   })
+   
+
     app.get('/user/tourist/:email', verifyToken, async(req, res) =>{
       const email = req.params.email;
       if(email !== req.decoded.email){
@@ -213,6 +203,41 @@ app.get('/booking/:email', verifyToken, async (req, res) =>{
     const result = await bookingCollection.find(query).toArray();
     res.send(result)
   })
+
+// Guides
+app.post('/guide', verifyToken, async (req, res) =>{
+  const guideinfo = req.body
+    const result = await guidessCollection.insertOne(guideinfo);
+    res.send(result)
+  })
+app.get('/guides', async (req, res)=>{
+  const result = await guidessCollection.find().toArray()
+  res.send(result)
+})
+app.get('/user/tourguide/:email', verifyToken, async(req, res) =>{
+  const email = req.params.email;
+  if(email !== req.decoded.email){
+    return res.status(403).send({message: 'forbidden access'});
+  }
+  const query = {email: email};
+  const user = await usersCollection.findOne(query);
+  let tourguide = false;
+  if(user){
+    tourguide = user?.role === 'tourguide'
+  }
+  res.send({tourguide})
+})
+
+//  
+app.get('/guideinfo/:email', async(req, res) =>{
+  const email = req.params.email;
+  console.log(email)
+  const query = {'contact.email':email};
+  const guideinfo= await guidessCollection.findOne(query);
+
+  res.send(guideinfo)
+})
+  // Authentication
  app.post('/signup', async (req, res) => {
   const userData = req.body
   const query = { email: userData.email };
