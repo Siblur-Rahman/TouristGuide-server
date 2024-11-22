@@ -182,8 +182,10 @@ app.post("/wishPackage", async(req, res) =>{
   const result = await wishPackagesCollection.insertOne(wishPack);
   res.send(result)
 })
-app.get("/wishPackages", async(req, res) =>{
-  const result = await wishPackagesCollection.find().toArray();
+app.get("/wishPackages/:email", async(req, res) =>{
+  const email=req.params.email;
+  const query = {email:email}
+  const result = await wishPackagesCollection.find(query).toArray();
   res.send(result)
  })
  app.delete("/wishPackage/:id", async(req, res) =>{
