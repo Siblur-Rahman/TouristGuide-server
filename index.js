@@ -39,6 +39,10 @@ async function run() {
     const packagesCollection = client.db("touristGuideDb").collection("packages");
     const wishPackagesCollection = client.db("touristGuideDb").collection("wishPackages");
     const bookingCollection = client.db("touristGuideDb").collection("booking");
+    const storiesCollection = client.db("touristGuideDb").collection("stories");
+    const commentsCollection = client.db("touristGuideDb").collection("comments");
+    const blogsCollection = client.db("touristGuideDb").collection("blogs");
+    const contactCollection = client.db("touristGuideDb").collection("contact");
 
  // jwt related api
  app.post('/jwt', async(req, res) =>{
@@ -135,7 +139,7 @@ app.patch('/user/request/:id', async(req, res)=>{
       }
       const query = {email: email};
       const user = await usersCollection.findOne(query);
-      let tourist = '';
+      let tourist;
       if(user?.role==='tourist'){
         tourist = user
       }
@@ -179,7 +183,6 @@ app.post("/wishPackage", async(req, res) =>{
   res.send(result)
 })
 app.get("/wishPackages", async(req, res) =>{
-  const wishPack = req.body;
   const result = await wishPackagesCollection.find().toArray();
   res.send(result)
  })
@@ -231,12 +234,51 @@ app.get('/user/tourguide/:email', verifyToken, async(req, res) =>{
 //  
 app.get('/guideinfo/:email', async(req, res) =>{
   const email = req.params.email;
-  console.log(email)
   const query = {'contact.email':email};
   const guideinfo= await guidessCollection.findOne(query);
 
   res.send(guideinfo)
 })
+
+// stories
+app.get("/stories", async(req, res) =>{
+  const result = await storiesCollection.find().toArray();
+  res.send(result)
+ })
+app.get("/stories4", async(req, res) =>{
+  const result = await storiesCollection.find().limit(4).toArray();
+  res.send(result)
+ })
+
+// coment
+app.post('/comment', verifyToken, async (req, res) =>{
+  const comment = req.body
+    const result = await commentsCollection.insertOne(comment);
+    res.send(result)
+  })
+app.get('/comments/:id', async (req, res) =>{
+  const id=req.params.id;
+  const query = {uid:id}
+    const result = await commentsCollection.find(query).toArray();
+    res.send(result)
+  })
+  // blogs
+  app.get('/blogs', async(rwq, res)=>{
+    const result = await blogsCollection.find().toArray();
+    res.send(result)
+  })
+
+  // contact
+  app.post('/contact', verifyToken, async (req, res) =>{
+    const formData = req.body
+      const result = await contactCollection.insertOne(formData);
+      res.send(result)
+    })
+  app.get('/contacts', async (req, res) =>{
+      const result = await contactCollection.find().toArray();
+      res.send(result)
+      console.log(result)
+    })
   // Authentication
  app.post('/signup', async (req, res) => {
   const userData = req.body
