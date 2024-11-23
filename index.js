@@ -202,15 +202,59 @@ app.post('/booking', verifyToken, async (req, res) =>{
     const result = await bookingCollection.insertOne(packageData);
     res.send(result)
   })
+  app.get('/booking/:packageId', async(req, res) =>{
+    const id = req.params.packageId;
+    const filter = {packageId:id};
+    const result = await bookingCollection.findOne(filter);
+    res.send(result);
+  })
+  app.patch('/booking/status/:packageId', async(req, res) =>{
+    const id = req.params.packageId;
+    const status = req.body.status
+    const filter = {packageId:id};
+    const updatedDoc ={
+      $set:{
+        status: status
+      }
+    }
+    const result = await bookingCollection.updateOne(filter, updatedDoc);
+    res.send(result);
+  })
+  app.patch('/booking/paymentstatus/:packageId', async(req, res) =>{
+    const id = req.params.packageId;
+    const filter = {packageId:id};
+    const updatedDoc ={
+      $set:{
+        role: 'tourguide'
+      }
+    }
+    const result = await bookingCollection.updateOne(filter, updatedDoc);
+    res.send(result);
+  })
   app.delete("/booking/:id", async(req, res) =>{
     const id = req.params.id;
     const query = {_id: new ObjectId(id)};
     const result = await bookingCollection.deleteOne(query);
     res.send(result)
    })
-app.get('/booking/:email', verifyToken, async (req, res) =>{
+// app.get('/bookings/:email', async (req, res) =>{
+//   console.log('booking')
+//     const email = req.params.email
+//     const query = {touristEmail:email};
+//     const result = await bookingCollection.find(query).toArray();
+//     res.send(result)
+//   })
+app.get('/bookinglist/:email', verifyToken, async (req, res) =>{
+  const email = req.params.email
+  // const query = {guideEmail: email};
+const query = {touristEmail: email};
+  const result = await bookingCollection.find(query).toArray();
+  res.send(result)
+})
+app.get('/assigned/:email', verifyToken, async (req, res) =>{
     const email = req.params.email
-    const query = {touristEmail: email};
+    // const query = {guideEmail: email};
+  const query = {touristEmail: email};
     const result = await bookingCollection.find(query).toArray();
     res.send(result)
   })
