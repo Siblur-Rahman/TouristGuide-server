@@ -43,6 +43,7 @@ async function run() {
     const commentsCollection = client.db("touristGuideDb").collection("comments");
     const blogsCollection = client.db("touristGuideDb").collection("blogs");
     const contactCollection = client.db("touristGuideDb").collection("contact");
+    const paymentCollection = client.db("touristGuideDb").collection("payments");
 
  // jwt related api
  app.post('/jwt', async(req, res) =>{
@@ -237,23 +238,21 @@ app.post('/booking', verifyToken, async (req, res) =>{
     const result = await bookingCollection.deleteOne(query);
     res.send(result)
    })
-// app.get('/bookings/:email', async (req, res) =>{
-//   console.log('booking')
-//     const email = req.params.email
-//     const query = {touristEmail:email};
-//     const result = await bookingCollection.find(query).toArray();
-//     res.send(result)
-//   })
+  app.get('/cart/:packageId', async(req, res) =>{
+    const id = req.params.packageId;
+    const query = {packageId:id};
+    const result = await bookingCollection.findOne(query);
+    res.send(result)
+   })
+
 app.get('/bookinglist/:email', verifyToken, async (req, res) =>{
   const email = req.params.email
-  // const query = {guideEmail: email};
 const query = {touristEmail: email};
   const result = await bookingCollection.find(query).toArray();
   res.send(result)
 })
 app.get('/assigned/:email', verifyToken, async (req, res) =>{
     const email = req.params.email
-    // const query = {guideEmail: email};
   const query = {touristEmail: email};
     const result = await bookingCollection.find(query).toArray();
     res.send(result)
@@ -331,6 +330,53 @@ app.get('/comments/:id', async (req, res) =>{
       res.send(result)
       console.log(result)
     })
+   //  payment intent
+   app.post('/create-payment-intent', async (req, res) => {
+    const {price} = req.body;
+    const amount = parseInt(price * 100);
+    console.log(amount)
+
+// Create a PaymentIntent with the order amount and currency
+const paymentIntent = await stripe.paymentIntents.create({
+  amount: amount,
+  currency: 'usd',
+  payment_method_types: [
+    "card"
+  ],
+});
+
+res.send({
+clientSecret: paymentIntent.client_secret
+});
+})
+
+app.post('/payments', async (req, res) => {
+const payment = req.body;
+const paymentResult = await paymentCollection.insertOne(payment);
+
+//  carefully delete each item from the cart
+console.log('payment info', payment);
+const query = {packageId: payment?.packageId};
+const updateDoc = {
+  $set:{
+    paymentStatus: 'paid'
+  }
+};
+
+const paymentStatusResult = await bookingCollection.updateOne(query, updateDoc);
+
+res.send({ paymentResult, paymentStatusResult});
+})
+app.get('/payments/:email', verifyToken, async (req, res) => {
+const query = { email: req.params.email }
+console.log(query, req.decoded.email)
+if (req.params.email !== req.decoded.email) {
+return res.status(403).send({ message: 'forbidden access' });
+}
+const result = await paymentCollection.find(query).toArray();
+res.send(result);
+})
+
   // Authentication
  app.post('/signup', async (req, res) => {
   const userData = req.body
