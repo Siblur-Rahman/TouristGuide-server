@@ -81,7 +81,20 @@ next();
 }
 
   app.get("/users", verifyToken, verifyAdmin, async(req, res) =>{
-      const result = await usersCollection.find().toArray();
+      const filter = req.query;
+      let query
+      if(filter?.role){
+        query={
+          name:{$regex: filter.search, $options: 'i'},
+          role:filter.role
+        };
+      }else{
+        query={
+          name:{$regex: filter.search, $options: 'i'},
+        };
+      }
+
+      const result = await usersCollection.find(query).toArray();
       res.send(result)
      })
     app.patch('/user/admin/:id', async(req, res) =>{
@@ -162,9 +175,18 @@ app.post('/package', verifyToken, verifyAdmin, async (req, res) =>{
     const result = await packagesCollection.insertOne(packageData);
     res.send(result)
   })
+app.get('/packagesCount', async (req, res) =>{
+  const count = await packagesCollection.estimatedDocumentCount();
+  res.send({count})
+})
 app.get('/packages', async (req, res) =>{
-  const result = await packagesCollection.find().toArray();
-  res.send(result)
+  const page = parseInt(req.query.page);
+  const size = parseInt(req.query.size);
+    const result = await packagesCollection.find()
+    .skip(page * size)
+    .limit(size)
+    .toArray();
+    res.send(result);
 })
 app.get('/packages3', async (req, res) =>{
   const result = await packagesCollection.find().limit(3).toArray();
