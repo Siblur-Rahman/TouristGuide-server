@@ -312,6 +312,11 @@ app.get('/guideinfo/:email', async(req, res) =>{
 
   res.send(guideinfo)
 })
+app.post('/guideinfo', async(req, res) =>{
+  const guideInfo = req.body;
+  const result= await guidessCollection.insertOne(guideInfo);
+  res.send(result)
+})
 
 // stories
 app.get("/stories", async(req, res) =>{
