@@ -1,11 +1,9 @@
 const express = require("express");
 const app = express();
 const cors = require('cors');
-const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
-const port = process.env.PROT || 5001;
+const port = process.env.PROT || 5000;
 
 
 // middleware
@@ -13,14 +11,12 @@ app.use(cors({
   origin: ["http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",
-    "https://tourist-guide-9beb4.web.app",
-    "https://tourist-guide-9beb4.firebaseapp.com/"
   ],
   credentials: true,
 }))
 app.use(express.json());
 // const uri = "mongodb://localhost:27017";
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ts8x6gb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ts8x6gb.mongodb.net/notes?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -34,387 +30,92 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Collection
-    const usersCollection = client.db("touristGuideDb").collection("users");
-    const guidessCollection = client.db("touristGuideDb").collection("guides");
-    const packagesCollection = client.db("touristGuideDb").collection("packages");
-    const wishPackagesCollection = client.db("touristGuideDb").collection("wishPackages");
-    const bookingCollection = client.db("touristGuideDb").collection("booking");
-    const storiesCollection = client.db("touristGuideDb").collection("stories");
-    const commentsCollection = client.db("touristGuideDb").collection("comments");
-    const blogsCollection = client.db("touristGuideDb").collection("blogs");
-    const contactCollection = client.db("touristGuideDb").collection("contact");
-    const paymentCollection = client.db("touristGuideDb").collection("payments");
+    const englishCollection = client.db("notes").collection("english");
+    const englishTopicsCollection = client.db("notes").collection("englishTopics");
 
- // jwt related api
- app.post('/jwt', async(req, res) =>{
-  const user = req.body;
-  const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-    expiresIn: "1h"});
-  res.send({ token})
-})
-
-// mddleware  
-const verifyToken = (req, res, next) =>{
-  // console.log("inside verify Token", req.headers.authorization);
-  if(!req.headers.authorization){
-    return res.status(401).send({message: "unauthorized access"})
-  }
-  const token = req.headers.authorization.split(' ')[1];
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) =>{
-    if(err){
-      return res.status(401).send({message: 'unauthorized access'})
+// english
+app.post('/english-topic', async (req, res) =>{
+  const topic = req.body
+    const query = { topic: topic.topic };
+    const existingTopic = await englishTopicsCollection.findOne(query);
+    if (existingTopic) {
+      return res.send({ message: "Topic already exists", insertedId: null });
+    } 
+      const result = await englishTopicsCollection.insertOne(topic)
+    res.send(result)  
+  })
+  app.patch('/english-topic/:topic', async(req, res) =>{
+    const topic = req.params.topic;
+    const sentence = req.body
+    const query = {topic:topic};
+    const updatedDoc ={
+      $addToSet:{
+        sentences: sentence
+      }
     }
-    req.decoded = decoded
-    next()
-  })
-}
-//  use verify admin after verifyToken
-const verifyAdmin = async(req, res, next) =>{
-const email = req.decoded.email;
-const query = {email: email};
-const user = await usersCollection.findOne(query);
-const isAdman = user?.role === 'admin';
-if(!isAdman){
-  return res.status(403).send({message: 'forbidden access'});
-}
-next();
-}
-
-  app.get("/users", verifyToken, verifyAdmin, async(req, res) =>{
-      const filter = req.query;
-      let query
-      if(filter?.role){
-        query={
-          name:{$regex: filter.search, $options: 'i'},
-          role:filter.role
-        };
-      }else{
-        query={
-          name:{$regex: filter.search, $options: 'i'},
-        };
-      }
-
-      const result = await usersCollection.find(query).toArray();
-      res.send(result)
-     })
-    app.patch('/user/admin/:id', async(req, res) =>{
-      const id = req.params.id;
-      const filter = {_id: new ObjectId(id)};
-      const updatedDoc ={
-        $set:{
-          role: 'admin'
-        }
-      }
-      const result = await usersCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    })
-    app.patch('/user/tourguide/:id', async(req, res) =>{
-      const id = req.params.id;
-      const filter = {_id: new ObjectId(id)};
-      const updatedDoc ={
-        $set:{
-          role: 'tourguide'
-        }
-      }
-      const result = await usersCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    })
-app.patch('/user/request/:id', async(req, res)=>{
-  const id = req.params.id;
-  const filter = {_id: new ObjectId(id)};
-  const updatedDoc ={
-    $set:{
-      request: 'requested'
-    }
-  }
-  const result = await usersCollection.updateOne(filter, updatedDoc);
-  res.send(result);
-})
-
-    app.get('/user/admin/:email', verifyToken, async(req, res) =>{
-      const email = req.params.email;
-      if(email !== req.decoded.email){
-        return res.status(403).send({message: 'forbidden access'});
-      }
-      const query = {email: email};
-      const user = await usersCollection.findOne(query);
-      let admin = false;
-      if(user){
-        admin = user?.role === 'admin'
-      }
-      res.send({admin})
-   })
-   
-
-    app.get('/user/tourist/:email', verifyToken, async(req, res) =>{
-      const email = req.params.email;
-      if(email !== req.decoded.email){
-        return res.status(403).send({message: 'forbidden access'});
-      }
-      const query = {email: email};
-      const user = await usersCollection.findOne(query);
-      let tourist;
-      if(user?.role==='tourist'){
-        tourist = user
-      }
-      res.send(tourist)
-   })
-    app.get('/userinfo/:email', verifyToken, async(req, res) =>{
-      const email = req.params.email;
-      if(email !== req.decoded.email){
-        return res.status(403).send({message: 'forbidden access'});
-      }
-      const query = {email: email};
-      const user = await usersCollection.findOne(query);
-      res.send(user)
-   })
-
-// Packages
-app.post('/package', verifyToken, verifyAdmin, async (req, res) =>{
-  const packageData = req.body
-    const result = await packagesCollection.insertOne(packageData);
-    res.send(result)
-  })
-app.get('/packagesCount', async (req, res) =>{
-  const count = await packagesCollection.estimatedDocumentCount();
-  res.send({count})
-})
-app.get('/packages', async (req, res) =>{
-  const page = parseInt(req.query.page);
-  const size = parseInt(req.query.size);
-    const result = await packagesCollection.find()
-    .skip(page * size)
-    .limit(size)
-    .toArray();
-    res.send(result);
-})
-app.get('/packages3', async (req, res) =>{
-  const result = await packagesCollection.find().limit(3).toArray();
-  res.send(result)
-})
-
-app.get("/package/:id", async(req, res) =>{
-  const id = req.params.id;
-  const query = {_id: new ObjectId(id)};
-  const result = await packagesCollection.findOne(query);
-  res.send(result)
- })
-// wishlist api
-app.post("/wishPackage", async(req, res) =>{
-  const wishPack = req.body;
-  const result = await wishPackagesCollection.insertOne(wishPack);
-  res.send(result)
-})
-app.get("/wishPackages/:email", async(req, res) =>{
-  const email=req.params.email;
-  const query = {email:email}
-  const result = await wishPackagesCollection.find(query).toArray();
-  res.send(result)
- })
- app.delete("/wishPackage/:id", async(req, res) =>{
-  const id = req.params.id;
-  const query = {_id: new ObjectId(id)};
-  const result = await wishPackagesCollection.deleteOne(query);
-  res.send(result)
- })
-
-//  booking api
-
-app.post('/booking', verifyToken, async (req, res) =>{
-    const packageData = req.body
-    const result = await bookingCollection.insertOne(packageData);
-    res.send(result)
-  })
-  app.get('/booking/:packageId', async(req, res) =>{
-    const id = req.params.packageId;
-    const filter = {packageId:id};
-    const result = await bookingCollection.findOne(filter);
+    const result = await englishTopicsCollection.updateOne(query, updatedDoc);
     res.send(result);
   })
-  app.patch('/booking/status/:packageId', async(req, res) =>{
-    const id = req.params.packageId;
-    const status = req.body.status
-    const filter = {packageId:id};
+  app.patch('/updateSentce/:topic', async(req, res) =>{
+    const topic = req.params.topic;
+    const sentence = req.body
+    const query = {topic:topic, "sentences.eng":`${sentence.bang}`};
     const updatedDoc ={
       $set:{
-        status: status
+        "sentences.eng": `${sentence.eng}`,
+        "sentences.bang": `${sentence.bang}`,
       }
     }
-    const result = await bookingCollection.updateOne(filter, updatedDoc);
+    const result = await englishTopicsCollection.updateOne(query, updatedDoc);
     res.send(result);
   })
-  app.patch('/booking/paymentstatus/:packageId', async(req, res) =>{
-    const id = req.params.packageId;
-    const filter = {packageId:id};
+  app.patch('/deleteSentce/:topic', async(req, res) =>{
+    const topic = req.params.topic;
+    const sentence = req.body
+    const query = {topic:topic};
     const updatedDoc ={
-      $set:{
-        role: 'tourguide'
+      $pull:{
+        sentences: sentence
       }
     }
-    const result = await bookingCollection.updateOne(filter, updatedDoc);
+    const result = await englishTopicsCollection.updateOne(query, updatedDoc);
     res.send(result);
   })
-  app.delete("/booking/:id", async(req, res) =>{
-    const id = req.params.id;
-    const query = {_id: new ObjectId(id)};
-    const result = await bookingCollection.deleteOne(query);
-    res.send(result)
-   })
-  app.get('/cart/:packageId', async(req, res) =>{
-    const id = req.params.packageId;
-    const query = {packageId:id};
-    const result = await bookingCollection.findOne(query);
-    res.send(result)
-   })
-
-app.get('/bookinglist/:email', verifyToken, async (req, res) =>{
-  const email = req.params.email
-const query = {touristEmail: email};
-  const result = await bookingCollection.find(query).toArray();
+app.get('/all-topics', async (req, res) =>{
+  const result = await englishTopicsCollection.find().toArray();
   res.send(result)
 })
-app.get('/assigned/:email', verifyToken, async (req, res) =>{
-    const email = req.params.email
-  const query = {touristEmail: email};
-    const result = await bookingCollection.find(query).toArray();
+
+app.get('/english-sentences/:topic', async (req, res) =>{
+  const topic = req.params.topic
+const query = {topic: topic};
+  const result = await englishCollection.find(query).toArray();
+  res.send(result)
+})
+app.get('/all-englishData', async (req, res) =>{
+  const result = await englishCollection.find().toArray();
+  res.send(result)
+})
+
+app.post('/english-sentences', async (req, res) =>{
+  const sentencesData = req.body
+    const result = await englishCollection.insertOne(sentencesData);
     res.send(result)
   })
-
-// Guides
-app.post('/guide', verifyToken, async (req, res) =>{
-  const guideinfo = req.body
-    const result = await guidessCollection.insertOne(guideinfo);
-    res.send(result)
-  })
-app.get('/guides', async (req, res)=>{
-  const result = await guidessCollection.find().toArray()
-  res.send(result)
-})
-app.get('/user/tourguide/:email', verifyToken, async(req, res) =>{
-  const email = req.params.email;
-  if(email !== req.decoded.email){
-    return res.status(403).send({message: 'forbidden access'});
-  }
-  const query = {email: email};
-  const user = await usersCollection.findOne(query);
-  let tourguide = false;
-  if(user){
-    tourguide = user?.role === 'tourguide'
-  }
-  res.send({tourguide})
-})
-
-//  
-app.get('/guideinfo/:email', async(req, res) =>{
-  const email = req.params.email;
-  const query = {'contact.email':email};
-  const guideinfo= await guidessCollection.findOne(query);
-
-  res.send(guideinfo)
-})
-app.post('/guideinfo', async(req, res) =>{
-  const guideInfo = req.body;
-  const result= await guidessCollection.insertOne(guideInfo);
-  res.send(result)
-})
-
-// stories
-app.get("/stories", async(req, res) =>{
-  const result = await storiesCollection.find().toArray();
+ app.delete("/delete-topic/:id", async(req, res) =>{
+  const id = req.params.id;
+  const query = {_id: new ObjectId(id)};
+  const result = await englishTopicsCollection.deleteOne(query);
   res.send(result)
  })
-app.get("/stories4", async(req, res) =>{
-  const result = await storiesCollection.find().limit(4).toArray();
+ app.delete("/delete-english-sentence/:topic", async(req, res) =>{
+  const id = req.params.id;
+  const query = {_id: new ObjectId(id)};
+  const result = await englishCollection.deleteOne(query);
   res.send(result)
  })
 
-// coment
-app.post('/comment', verifyToken, async (req, res) =>{
-  const comment = req.body
-    const result = await commentsCollection.insertOne(comment);
-    res.send(result)
-  })
-app.get('/comments/:id', async (req, res) =>{
-  const id=req.params.id;
-  const query = {uid:id}
-    const result = await commentsCollection.find(query).toArray();
-    res.send(result)
-  })
-  // blogs
-  app.get('/blogs', async(rwq, res)=>{
-    const result = await blogsCollection.find().toArray();
-    res.send(result)
-  })
 
-  // contact
-  app.post('/contact', verifyToken, async (req, res) =>{
-    const formData = req.body
-      const result = await contactCollection.insertOne(formData);
-      res.send(result)
-    })
-  app.get('/contacts', async (req, res) =>{
-      const result = await contactCollection.find().toArray();
-      res.send(result)
-      console.log(result)
-    })
-   //  payment intent
-   app.post('/create-payment-intent', async (req, res) => {
-    const {price} = req.body;
-    const amount = parseInt(price * 100);
-    console.log(amount)
-
-// Create a PaymentIntent with the order amount and currency
-const paymentIntent = await stripe.paymentIntents.create({
-  amount: amount,
-  currency: 'usd',
-  payment_method_types: [
-    "card"
-  ],
-});
-
-res.send({
-clientSecret: paymentIntent.client_secret
-});
-})
-
-app.post('/payments', async (req, res) => {
-const payment = req.body;
-const paymentResult = await paymentCollection.insertOne(payment);
-
-//  carefully delete each item from the cart
-console.log('payment info', payment);
-const query = {packageId: payment?.packageId};
-const updateDoc = {
-  $set:{
-    paymentStatus: 'paid'
-  }
-};
-
-const paymentStatusResult = await bookingCollection.updateOne(query, updateDoc);
-
-res.send({ paymentResult, paymentStatusResult});
-})
-app.get('/payments/:email', verifyToken, async (req, res) => {
-const query = { email: req.params.email }
-console.log(query, req.decoded.email)
-if (req.params.email !== req.decoded.email) {
-return res.status(403).send({ message: 'forbidden access' });
-}
-const result = await paymentCollection.find(query).toArray();
-res.send(result);
-})
-
-  // Authentication
- app.post('/signup', async (req, res) => {
-  const userData = req.body
-  const query = { email: userData.email };
-  const existingUser = await usersCollection.findOne(query);
-  if (existingUser) {
-    return res.send({ message: "user already exists", insertedId: null });
-  }
-  const result = await usersCollection.insertOne(userData)
-  res.send(result)
-})
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
@@ -427,9 +128,9 @@ res.send(result);
 run().catch(console.dir);
 
 app.get('/', (req, res) =>{
-    res.send('TouristGuide-server server is runing')
+    res.send('notes-server server is runing')
 })
 
 app.listen(port, () =>{
-    console.log(`TouristGuide-server is runing on port ${port}`)
+    console.log(`notes-server is runing on port ${port}`)
 })
